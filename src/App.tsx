@@ -241,7 +241,7 @@ export default function App() {
 
       // Sort filtered results by view count descending
       filtered.sort((a, b) => parseInt(b.videoViewCount) - parseInt(a.videoViewCount));
-      console.log("searchGameCreators returned", result.creators.length, "creators, filtered to", filtered.length);
+      console.log("searchGameCreators returned", allCreators.length, "creators, filtered to", filtered.length);
       setCreators(filtered);
       setCrQuery(query);
       setCrHasSearched(true);
