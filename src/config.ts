@@ -8,6 +8,13 @@ export const REGIONS = [
   { label: '日韩', regionCode: 'JP', countries: ['JP', 'KR'] },
   { label: '中东', regionCode: 'AE', countries: ['AE', 'SA', 'IL', 'TR'] },
   { label: '拉美', regionCode: 'BR', countries: ['BR', 'MX', 'AR', 'CL'] },
+  { label: '俄罗斯', regionCode: 'RU', countries: ['RU', 'BY', 'KZ'] },
 ];
+
+// YouTube API doesn't support all region codes (e.g. RU).
+// Only these are passed as the regionCode query parameter.
+export const YOUTUBE_API_REGION_CODES = new Set([
+  'US', 'GB', 'ID', 'JP', 'AE', 'BR',
+]);
 
 export const RESULTS_PER_PAGE = 20;

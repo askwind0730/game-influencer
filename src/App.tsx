@@ -1,11 +1,11 @@
-﻿import { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Header from "./components/Header";
 import SearchBar from "./components/SearchBar";
 import ChannelCard from "./components/ChannelCard";
 import GameCreatorCard from "./components/GameCreatorCard";
 import Pagination from "./components/Pagination";
 import { searchChannels, searchGameCreators } from "./api/youtube";
-import { matchesRegion, isOfficialChannel } from "./utils";
+import { matchesRegion, isOfficialChannel, translateToRussian } from "./utils";
 import type { TabType, ChannelDisplay, GameCreatorData } from "./types";
 
 const SKELETON_COUNT = 8;
@@ -116,16 +116,47 @@ export default function App() {
     setChLoading(true);
     setChError(null);
     try {
-      const result = await searchChannels(query, region || undefined, pageToken);
-      let cards: ChannelDisplay[] = result.channels.items.map((ch) => ({
-        id: ch.id,
-        title: ch.snippet.title,
-        avatar: ch.snippet.thumbnails.high?.url || ch.snippet.thumbnails.default?.url,
-        subscriberCount: ch.statistics.subscriberCount || "0",
-        videoCount: ch.statistics.videoCount || "0",
-        country: ch.snippet.country,
-        channelUrl: "https://www.youtube.com/channel/" + ch.id,
-      }));
+      let cards: ChannelDisplay[] = [];
+      let nextPageToken: string | undefined;
+
+      if (region === 'RU' && !pageToken) {
+        // Dual-language search: English + translated Russian for better Russian creator coverage
+        let ruQuery = query;
+        try { ruQuery = await translateToRussian(query); } catch {}
+        const [enResult, ruResult] = await Promise.all([
+          searchChannels(query, undefined, pageToken),
+          searchChannels(ruQuery, undefined, pageToken),
+        ]);
+        const seen = new Set<string>();
+        for (const r of [enResult, ruResult]) {
+          for (const ch of r.channels.items) {
+            if (seen.has(ch.id)) continue;
+            seen.add(ch.id);
+            cards.push({
+              id: ch.id,
+              title: ch.snippet.title,
+              avatar: ch.snippet.thumbnails.high?.url || ch.snippet.thumbnails.default?.url,
+              subscriberCount: ch.statistics.subscriberCount || "0",
+              videoCount: ch.statistics.videoCount || "0",
+              country: ch.snippet.country,
+              channelUrl: "https://www.youtube.com/channel/" + ch.id,
+            });
+          }
+        }
+        nextPageToken = enResult.search.nextPageToken;
+      } else {
+        const result = await searchChannels(query, region || undefined, pageToken);
+        cards = result.channels.items.map((ch) => ({
+          id: ch.id,
+          title: ch.snippet.title,
+          avatar: ch.snippet.thumbnails.high?.url || ch.snippet.thumbnails.default?.url,
+          subscriberCount: ch.statistics.subscriberCount || "0",
+          videoCount: ch.statistics.videoCount || "0",
+          country: ch.snippet.country,
+          channelUrl: "https://www.youtube.com/channel/" + ch.id,
+        }));
+        nextPageToken = result.search.nextPageToken;
+      }
 
       // Sort by subscriber count descending
       cards.sort((a, b) => parseInt(b.subscriberCount) - parseInt(a.subscriberCount));
@@ -137,9 +168,9 @@ export default function App() {
 
       setChannels(cards);
       setChQuery(query);
-      setPgHasNext(!!result.search.nextPageToken);
+      setPgHasNext(!!nextPageToken);
       if (pageIdx !== undefined) {
-        setPgTokens(prev => { const t = [...prev]; t[pageIdx + 1] = result.search.nextPageToken; return t; });
+        setPgTokens(prev => { const t = [...prev]; t[pageIdx + 1] = nextPageToken; return t; });
       }
       setPgIdx(pageIdx ?? 0);
     } catch (err: unknown) {
@@ -154,10 +185,33 @@ export default function App() {
     setCrLoading(true);
     setCrError(null);
     try {
-      const result = await searchGameCreators(query, pageToken);
+      let allCreators: GameCreatorData[] = [];
+      let nextPageToken: string | undefined;
+
+      if (region === 'RU' && !pageToken) {
+        let ruQuery = query;
+        try { ruQuery = await translateToRussian(query); } catch {}
+        const [enResult, ruResult] = await Promise.all([
+          searchGameCreators(query, pageToken),
+          searchGameCreators(ruQuery, pageToken),
+        ]);
+        const seen = new Set<string>();
+        for (const r of [enResult, ruResult]) {
+          for (const cr of r.creators) {
+            if (seen.has(cr.channelId)) continue;
+            seen.add(cr.channelId);
+            allCreators.push(cr);
+          }
+        }
+        nextPageToken = enResult.nextPageToken;
+      } else {
+        const result = await searchGameCreators(query, pageToken);
+        allCreators = result.creators;
+        nextPageToken = result.nextPageToken;
+      }
 
       // Apply all filters
-      let filtered = result.creators.filter((cr) => {
+      let filtered = allCreators.filter((cr) => {
         if (isOfficialChannel(cr.channelTitle, query)) return false;
         if (region && !matchesRegion(cr.country, region)) return false;
         // Subscriber range filter
@@ -191,9 +245,9 @@ export default function App() {
       setCreators(filtered);
       setCrQuery(query);
       setCrHasSearched(true);
-      setPgHasNext(!!result.nextPageToken);
+      setPgHasNext(!!nextPageToken);
       if (pageIdx !== undefined) {
-        setPgTokens(prev => { const t = [...prev]; t[pageIdx + 1] = result.nextPageToken; return t; });
+        setPgTokens(prev => { const t = [...prev]; t[pageIdx + 1] = nextPageToken; return t; });
       }
       setPgIdx(pageIdx ?? 0);
     } catch (err: unknown) {

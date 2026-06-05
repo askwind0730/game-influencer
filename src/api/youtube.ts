@@ -1,4 +1,4 @@
-import { YOUTUBE_API_KEY } from "../config";
+import { YOUTUBE_API_KEY, YOUTUBE_API_REGION_CODES } from "../config";
 import type { YouTubeSearchResult, YouTubeChannelResult, YouTubeVideoListResult } from "../types";
 
 const API_BASE = "https://www.googleapis.com/youtube/v3";
@@ -38,7 +38,7 @@ export async function searchChannels(
     maxResults: String(maxResults),
     key: YOUTUBE_API_KEY,
   });
-  if (regionCode) params.set("regionCode", regionCode);
+  if (regionCode && YOUTUBE_API_REGION_CODES.has(regionCode)) params.set("regionCode", regionCode);
   if (pageToken) params.set("pageToken", pageToken);
 
   const search: YouTubeSearchResult = await fetchJSON(API_BASE + "/search?" + params.toString());

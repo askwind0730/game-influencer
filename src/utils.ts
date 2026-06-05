@@ -33,6 +33,7 @@ export function getRegionLabel(country?: string): string {
     JP: "\u65E5\u97E9", KR: "\u65E5\u97E9",
     AE: "\u4E2D\u4E1C", SA: "\u4E2D\u4E1C", IL: "\u4E2D\u4E1C", TR: "\u4E2D\u4E1C",
     BR: "\u62C9\u7F8E", MX: "\u62C9\u7F8E", AR: "\u62C9\u7F8E", CL: "\u62C9\u7F8E",
+    RU: "\u4FC4\u7F57\u65AF", BY: "\u4FC4\u7F57\u65AF", KZ: "\u4FC4\u7F57\u65AF",
   };
   return regionMap[country.toUpperCase()] || "";
 }
@@ -45,6 +46,7 @@ export function getRegionColor(label: string): string {
     "\u65E5\u97E9": "bg-rose-100 text-rose-700",
     "\u4E2D\u4E1C": "bg-amber-100 text-amber-700",
     "\u62C9\u7F8E": "bg-purple-100 text-purple-700",
+    "\u4FC4\u7F57\u65AF": "bg-red-100 text-red-700",
   };
   return colors[label] || "bg-slate-100 text-slate-600";
 }
@@ -66,11 +68,28 @@ export function matchesRegion(country: string | undefined, regionCode: string): 
     JP: ["JP", "KR"],
     AE: ["AE", "SA", "IL", "TR", "QA", "KW", "OM", "BH", "JO", "LB"],
     BR: ["BR", "MX", "AR", "CL", "CO", "PE", "UY", "PY", "BO", "EC"],
+    RU: ["RU", "BY", "KZ"],
   };
 
   const allowed = regionCountryMap[regionCode];
   if (!allowed) return true;
   return allowed.includes(country.toUpperCase());
+}
+
+
+// Translate English text to Russian using Google Translate public endpoint
+export async function translateToRussian(text: string): Promise<string> {
+  if (!text.trim()) return text;
+  try {
+    const url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ru&dt=t&q=" + encodeURIComponent(text);
+    const res = await fetch(url);
+    const data = await res.json();
+    // Response: [[["translated","original",...]],...]
+    const translated = data?.[0]?.[0]?.[0];
+    return translated || text;
+  } catch {
+    return text; // fallback to original on any error
+  }
 }
 
 // Heuristic to detect official game channels
